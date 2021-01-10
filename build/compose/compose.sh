@@ -35,7 +35,7 @@ header() { printf "\n${underline}${bold}${blue}■ %s${reset}\n" "$@"; }
 header2() { printf "\n${underline}${bold}${blue}❏ %s${reset}\n" "$@"; }
 info() { printf "${white}➜ %s${reset}\n" "$@"; }
 warn() { printf "${yellow}➜ %s${reset}\n" "$@"; }
-error() { printf "${red}✘ %s${reset}\n" "$@"; }
+error() { printf "${red}✖ %s${reset}\n" "$@"; }
 success() { printf "${green}✔ %s${reset}\n" "$@"; }
 usage() { printf "\n${underline}${bold}${blue}Usage:${reset} ${blue}%s${reset}\n" "$@"; }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##########################################################################
-# build.sh
+# build tomcat for compose
 # for centos 7.x
 # author : yong.ran@cdjdgm.com
 # require : docker and docker-compose
@@ -27,14 +27,15 @@ else
 fi
 
 # header and logging
-header() { printf "\n${underline}${bold}${blue}> %s${reset}\n" "$@"; }
-header2() { printf "\n${underline}${bold}${blue}>> %s${reset}\n" "$@"; }
+header() { printf "\n${underline}${bold}${blue}■ %s${reset}\n" "$@"; }
+header2() { printf "\n${underline}${bold}${blue}❏ %s${reset}\n" "$@"; }
 info() { printf "${white}➜ %s${reset}\n" "$@"; }
 warn() { printf "${yellow}➜ %s${reset}\n" "$@"; }
 error() { printf "${red}✖ %s${reset}\n" "$@"; }
 success() { printf "${green}✔ %s${reset}\n" "$@"; }
 usage() { printf "\n${underline}${bold}${blue}Usage:${reset} ${blue}%s${reset}\n" "$@"; }
 
+# trap signal
 trap "error '******* ERROR: Something went wrong.*******'; exit 1" sigterm
 trap "error '******* Caught sigint signal. Stopping...*******'; exit 2" sigint
 
