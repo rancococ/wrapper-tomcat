@@ -1,0 +1,63 @@
+#encoding=UTF-8
+
+#********************************************************************
+# Java Additional Parameters
+#********************************************************************
+{{- if eq .Jvm.JmxExporter.Enabled "true"}}
+-javaagent:"%WRAPPER_BASE_DIR%/exporter/jmx_prometheus_javaagent-0.12.0.jar={{.Jvm.JmxExporter.Port}}:%WRAPPER_BASE_DIR%/exporter/jmx_exporter.yml"
+{{- end}}
+-server
+-showversion
+{{- if eq .Jvm.HeapDumpEnabled "true"}}
+-XX:+HeapDumpOnOutOfMemoryError
+-XX:HeapDumpPath=../temp/
+{{- end}}
+{{- if eq .Jvm.PrintGcEnabled "true"}}
+-XX:+PrintGCDetails
+-XX:+PrintGCDateStamps
+-XX:+PrintGCTimeStamps
+-XX:+PrintHeapAtGC
+{{- end}}
+-Xloggc:../logs/jvmgc.log
+-Xms{{.Jvm.Xms}}
+-Xmx{{.Jvm.Xmx}}
+-Xss{{.Jvm.Xss}}
+-XX:MetaspaceSize={{.Jvm.MetaspaceSize}}
+-XX:MaxMetaspaceSize={{.Jvm.MaxMetaspaceSize}}
+-XX:MaxDirectMemorySize={{.Jvm.MaxDirectMemorySize}}
+{{- if eq .Jvm.RemoteDebug.Enabled "true"}}
+-Xint
+-Xdebug
+-Xnoagent
+-Djava.compiler=NONE
+-Xrunjdwp:transport=dt_socket,server=y,suspend={{.Jvm.RemoteDebug.Suspend}},address={{.Jvm.RemoteDebug.Port}}
+{{- end}}
+-Djava.security.egd=file:/dev/urandom
+-Djava.awt.headless=true
+-Dfile.encoding=UTF-8
+-Dsun.jnu.encoding=UTF-8
+-Dsun.stdout.encoding=UTF-8
+-Dsun.stderr.encoding=UTF-8
+-Duser.timezone=GMT+8
+{{- if eq .Jvm.JmxRemote.Enabled "true"}}
+-Dcom.sun.management.jmxremote
+-Dcom.sun.management.jmxremote.ssl={{.Jvm.JmxRemote.Ssl}}
+-Dcom.sun.management.jmxremote.local.only=false
+-Dcom.sun.management.jmxremote.authenticate={{.Jvm.JmxRemote.Auth}}
+-Dcom.sun.management.jmxremote.access.file=../conf/jmxremote.access
+-Dcom.sun.management.jmxremote.password.file=../conf/jmxremote.password
+-Djava.rmi.server.hostname={{.Jvm.JmxRemote.RmiServerHostname}}
+-Drmi.registry.port.platform={{.Jvm.JmxRemote.RmiRegistryPort}}
+-Drmi.server.port.platform={{.Jvm.JmxRemote.RmiServerPort}}
+{{- end}}
+-Dhttp.listen.port={{.Jvm.HttpListenPort}}
+-Dshutdown.port={{.Jvm.ShutdownPort}}
+
+#********************************************************************
+# Other Parameters
+#********************************************************************
+{{- range .Jvm.OtherParameters}}
+{{- if .}}
+-D{{.}}
+{{- end}}
+{{- end}}
