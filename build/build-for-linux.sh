@@ -56,81 +56,69 @@ done
 base_dir="$( cd -P "$( dirname "$source" )" && pwd )"
 cd "${base_dir}"
 
-uuid_name="$(cat /proc/sys/kernel/random/uuid)"
-uuid_home=/tmp/${uuid_name}
-source_home=/tmp/${uuid_name}/source
-target_home=/tmp/${uuid_name}/target
+build_name="$(cat /proc/sys/kernel/random/uuid)"
+build_home=/tmp/${build_name}
+
+product_name="wrapper-tomcat"
 
 version=3.5.43.7
 jre_version=1.8.192
 tomcat_version=8.5.57
 wrapper_version=3.5.43.7
 
-serverjre_linux=server-jre-8u192-linux-x64.tar.gz
-
-wrapper_name=wrapper-tomcat-${version}.tar.gz
-wrapper_url=https://github.com/rancococ/wrapper/archive/tomcat-${version}.tar.gz
+serverjre=server-jre-8u192-linux-x64.tar.gz
 
 arch=x86_64
 
-# build with jre
-fun_build_with_jre() {
-    header "build without jre start..."
+# build
+fun_build() {
+    header "build start..."
 
-    \rm -rf ${uuid_home}
+    \rm -rf ${build_home}
 
-    mkdir -p ${source_home} && \
-    mkdir -p ${target_home}/wrapper-tomcat
+    mkdir -p ${build_home}/${product_name}/jre
 
-    \cp -rf ${base_dir}/assets/${serverjre_linux} ${source_home}/server-jre.tar.gz && \
-    tar -zxf ${source_home}/server-jre.tar.gz -C ${source_home} && \
-    jrename=$(tar -tf ${source_home}/server-jre.tar.gz | awk -F "/" '{print $1}' | sed -n '1p') && \
-    \cp -rf ${source_home}/${jrename}/jre ${target_home}/wrapper-tomcat/jre && \
-    sed -i 's@securerandom.source=file:/dev/random@securerandom.source=file:/dev/urandom@g' "${target_home}/wrapper-tomcat/jre/lib/security/java.security" && \
-    sed -i 's@#crypto.policy=unlimited@crypto.policy=unlimited@g' "${target_home}/wrapper-tomcat/jre/lib/security/java.security" && \
+    tar_first_name=$(tar -tf ${base_dir}/linux/${serverjre} | awk -F "/" '{print $1}' | sed -n '1p') && \
+    tar --no-same-owner -zxf ${base_dir}/linux/${serverjre} --directory=${build_home}/${product_name}/jre ${tar_first_name}/jre --strip-components=2 && \
+    sed -i 's@securerandom.source=file:/dev/random@securerandom.source=file:/dev/urandom@g' "${build_home}/${product_name}/jre/lib/security/java.security" && \
+    sed -i 's@#crypto.policy=unlimited@crypto.policy=unlimited@g' "${build_home}/${product_name}/jre/lib/security/java.security"
 
-    \cp -rf ${base_dir}/assets/${wrapper_name} ${source_home}/wrapper.tar.gz && \
-    tar -zxf ${source_home}/wrapper.tar.gz -C ${source_home} && \
-    wrappername=$(tar -tf ${source_home}/wrapper.tar.gz | awk -F "/" '{print $1}' | sed -n '1p') && \
-    \cp -rf ${source_home}/${wrappername}/. ${target_home}/wrapper-tomcat && \
+    \cp -rf ${base_dir}/../source/. ${build_home}/${product_name}
 
-    find ${target_home}/wrapper-tomcat -type f -name ".gitignore" | xargs rm -rf && \
-    find ${target_home}/wrapper-tomcat -type f -name ".keep" | xargs rm -rf && \
+    touch ${build_home}/${product_name}/bin/version && \
+    echo "jre:${jre_version}"          >> ${build_home}/${product_name}/bin/version && \
+    echo "tomcat:${tomcat_version}"    >> ${build_home}/${product_name}/bin/version && \
+    echo "wrapper:${wrapper_version}"  >> ${build_home}/${product_name}/bin/version
 
-    find ${target_home}/wrapper-tomcat | xargs touch && \
-    find ${target_home}/wrapper-tomcat -type d -print | xargs chmod 755 && \
-    find ${target_home}/wrapper-tomcat -type f -print | xargs chmod 644 && \
+    find "${build_home}/${product_name}" -exec touch {} \; && \
+    find "${build_home}/${product_name}" -type d -exec chmod 755 {} \; && \
+    find "${build_home}/${product_name}" -type f -exec chmod 644 {} \; && \
+    find "${build_home}/${product_name}" -type f -name ".keep" -exec rm -rf {} \;
 
-    touch ${target_home}/wrapper-tomcat/bin/version && \
-    echo "jre:${jre_version}" >> ${target_home}/wrapper-tomcat/bin/version && \
-    echo "tomcat:${tomcat_version}" >> ${target_home}/wrapper-tomcat/bin/version && \
-    echo "wrapper:${wrapper_version}" >> ${target_home}/wrapper-tomcat/bin/version && \
+    chmod 744 ${build_home}/${product_name}/jre/bin/* && \
+    chmod 744 ${build_home}/${product_name}/bin/* && \
+    chmod 644 ${build_home}/${product_name}/bin/*.bat && \
+    chmod 644 ${build_home}/${product_name}/bin/*.exe && \
+    chmod 644 ${build_home}/${product_name}/bin/*.jar && \
+    chmod 644 ${build_home}/${product_name}/bin/*.cnf && \
+    chmod 644 ${build_home}/${product_name}/bin/version && \
+    chmod 600 ${build_home}/${product_name}/conf/*.password && \
+    chmod 777 ${build_home}/${product_name}/logs && \
+    chmod 777 ${build_home}/${product_name}/temp
 
-    chmod 744 ${target_home}/wrapper-tomcat/jre/bin/* && \
-    chmod 744 ${target_home}/wrapper-tomcat/bin/* && \
-    chmod 644 ${target_home}/wrapper-tomcat/bin/*.bat && \
-    chmod 644 ${target_home}/wrapper-tomcat/bin/*.exe && \
-    chmod 644 ${target_home}/wrapper-tomcat/bin/*.jar && \
-    chmod 644 ${target_home}/wrapper-tomcat/bin/*.cnf && \
-    chmod 644 ${target_home}/wrapper-tomcat/bin/version && \
-    chmod 600 ${target_home}/wrapper-tomcat/conf/*.password && \
-    chmod 777 ${target_home}/wrapper-tomcat/logs && \
-    chmod 777 ${target_home}/wrapper-tomcat/temp
+    tar -C ${build_home} -czf ${base_dir}/${product_name}-${version}-linux-${arch}.tar.gz ${product_name}
 
-    mkdir -p ${base_dir}/release
-    tar -C ${target_home} -czf ${base_dir}/release/wrapper-tomcat-${version}-jre-linux-${arch}.tar.gz wrapper-tomcat
+    \rm -rf ${build_home}
 
-    \rm -rf ${uuid_home}
-
-    success "build without jre success."
+    success "build success."
     return 0;
 }
 
 # entry base dir
 cd "${base_dir}"
 
-# build with jre
-fun_build_with_jre
+# build
+fun_build
 
 cd "${base_dir}"
 
