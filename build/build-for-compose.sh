@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ##########################################################################
-# build tomcat for compose
+# build for compose
 # for centos 7.x
 # author : yong.ran@cdjdgm.com
 # require : docker and docker-compose
@@ -12,6 +12,9 @@ step=1
 
 set -e
 set -o noglob
+
+# save old work path
+pwd_old=`pwd`
 
 # set author info
 date1=`date "+%Y-%m-%d %H:%M:%S"`
@@ -38,6 +41,9 @@ success() { printf "${green}✔ %s${reset}\n" "$@"; }
 usage() { printf "\n${underline}${bold}${blue}Usage:${reset} ${blue}%s${reset}\n" "$@"; }
 timestamp() { printf "➜ current time : $(date +%Y-%m-%d' '%H:%M:%S.%N | cut -b 1-23)\n"; }
 
+# get real path
+getRealPath() { if [[ "$1" =~ ^\/.* ]]; then temp_path="$1"; else temp_path="${pwd_old}/$1"; fi; printf "$(readlink -f ${temp_path})"; }
+
 # trap signal
 trap "error '******* ERROR: Something went wrong.*******'; exit 1" sigterm
 trap "error '******* Caught sigint signal. Stopping...*******'; exit 2" sigint
@@ -46,15 +52,14 @@ set +o noglob
 
 # entry base dir
 base_name=`basename $0 .sh`
-pwd=`pwd`
-base_dir="${pwd}"
-source="$0"
-while [ -h "$source" ]; do
-    base_dir="$( cd -P "$( dirname "$source" )" && pwd )"
-    source="$(readlink "$source")"
-    [[ $source != /* ]] && source="$base_dir/$source"
+base_dir="${pwd_old}"
+source_name="$0"
+while [ -h "${source_name}" ]; do
+    base_dir="$( cd -P "$( dirname "${source_name}" )" && pwd )"
+    source_name="$(readlink "${source_name}")"
+    [[ ${source_name} != /* ]] && source_name="${base_dir}/${source_name}"
 done
-base_dir="$( cd -P "$( dirname "$source" )" && pwd )"
+base_dir="$( cd -P "$( dirname "${source_name}" )" && pwd )"
 cd "${base_dir}"
 
 # envirionment
@@ -82,8 +87,8 @@ arg_subcmd=
 #    在这里用做表示最后一个选项(用以判定 while 的结束)
 # $@ 从命令行取出参数列表(不能用用 $* 代替，因为 $* 将所有的参数解释成一个字符串
 #                         而 $@ 是一个参数数组)
-# args=`getopt -o ab:c:: -a -l apple,banana:,cherry:: -n "${source}" -- "$@"`
-args=`getopt -o h -a -l help,build -n "${source}" -- "$@"`
+# args=`getopt -o ab:c:: -a -l apple,banana:,cherry:: -n "${source_name}" -- "$@"`
+args=`getopt -o h -a -l help,build -n "${source_name}" -- "$@"`
 # 判定 getopt 的执行时候有错，错误信息输出到 STDERR
 if [ $? != 0 ]; then
     error "Terminating..." >&2
@@ -156,7 +161,7 @@ fun_execute_build_command() {
     mkdir -p "${build_home}/${product_name}"
 
     info "copy files"
-    \cp -rf "${base_dir}"/compose/. "${build_home}/${product_name}"
+    \cp -rf "${base_dir}/compose"/. "${build_home}/${product_name}"
 
     info "pull images"
     save_images=""
