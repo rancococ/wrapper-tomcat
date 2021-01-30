@@ -13,30 +13,38 @@ step=1
 set -e
 set -o noglob
 
+# save old work path
+pwd_old=`pwd`
+
 # set author info
 date1=`date "+%Y-%m-%d %H:%M:%S"`
 date2=`date "+%Y%m%d%H%M%S"`
 author="yong.ran@cdjdgm.com"
 
-# font and color 
-bold=$(tput bold)
-underline=$(tput sgr 0 1)
-reset=$(tput sgr0)
-red=$(tput setaf 1)
-green=$(tput setaf 2)
-yellow=$(tput setaf 3)
-blue=$(tput setaf 4)
-white=$(tput setaf 7)
+# init font and color 
+if [ "${TERM}" == "xterm" ]; then
+    bold=$(tput bold); underline=$(tput sgr 0 1); reset=$(tput sgr0);
+    red=$(tput setaf 1); green=$(tput setaf 2); yellow=$(tput setaf 3); blue=$(tput setaf 4); white=$(tput setaf 7);
+else
+    bold=""; underline=""; reset="";
+    red=""; green=""; yellow=""; blue=""; white="";
+fi
 
 # header and logging
-header() { printf "\n${underline}${bold}${blue}> %s${reset}\n" "$@"; }
-header2() { printf "\n${underline}${bold}${blue}>> %s${reset}\n" "$@"; }
+header() { printf "\n${underline}${bold}${blue}■ %s${reset}\n" "$@"; }
+header2() { printf "\n${underline}${bold}${blue}❏ %s${reset}\n" "$@"; }
+header3() { printf "\n${underline}${bold}${blue}❏ %s${reset}\n" "$@"; }
 info() { printf "${white}➜ %s${reset}\n" "$@"; }
 warn() { printf "${yellow}➜ %s${reset}\n" "$@"; }
 error() { printf "${red}✖ %s${reset}\n" "$@"; }
 success() { printf "${green}✔ %s${reset}\n" "$@"; }
 usage() { printf "\n${underline}${bold}${blue}Usage:${reset} ${blue}%s${reset}\n" "$@"; }
+timestamp() { printf "➜ current time : $(date +%Y-%m-%d' '%H:%M:%S.%N | cut -b 1-23)\n"; }
 
+# get real path
+getRealPath() { if [[ "$1" =~ ^\/.* ]]; then temp_path="$1"; else temp_path="${pwd_old}/$1"; fi; printf "$(readlink -f ${temp_path})"; }
+
+# trap signal
 trap "error '******* ERROR: Something went wrong.*******'; exit 1" sigterm
 trap "error '******* Caught sigint signal. Stopping...*******'; exit 2" sigint
 
@@ -44,16 +52,17 @@ set +o noglob
 
 # entry base dir
 base_name=`basename $0 .sh`
-pwd=`pwd`
-base_dir="${pwd}"
-source="$0"
-while [ -h "$source" ]; do
-    base_dir="$( cd -P "$( dirname "$source" )" && pwd )"
-    source="$(readlink "$source")"
-    [[ $source != /* ]] && source="$base_dir/$source"
+base_dir="${pwd_old}"
+source_name="$0"
+while [ -h "${source_name}" ]; do
+    base_dir="$( cd -P "$( dirname "${source_name}" )" && pwd )"
+    source_name="$(readlink "${source_name}")"
+    [[ ${source_name} != /* ]] && source_name="${base_dir}/${source_name}"
 done
-base_dir="$( cd -P "$( dirname "$source" )" && pwd )"
+base_dir="$( cd -P "$( dirname "${source_name}" )" && pwd )"
 cd "${base_dir}"
+
+# envirionment
 
 # args flag
 arg_subcmd=
@@ -71,13 +80,20 @@ arg_file=
 #    在这里用做表示最后一个选项(用以判定 while 的结束)
 # $@ 从命令行取出参数列表(不能用用 $* 代替，因为 $* 将所有的参数解释成一个字符串
 #                         而 $@ 是一个参数数组)
-# args=`getopt -o ab:c:: -a -l apple,banana:,cherry:: -n "${source}" -- "$@"`
-args=`getopt -o h -a -l help,init,list,import,export,delete,alias:,file: -n "${source}" -- "$@"`
+# args=`getopt -o ab:c:: -a -l apple,banana:,cherry:: -n "${source_name}" -- "$@"`
+args=`getopt -o h -a -l help,init,list,import,export,delete,alias:,file: -n "${source_name}" -- "$@"`
 # 判定 getopt 的执行时候有错，错误信息输出到 STDERR
 if [ $? != 0 ]; then
     error "Terminating..." >&2
     exit 1
 fi
+
+# show start time
+timestamp;
+
+# show parameter options
+header "[Step ${step}]: show parameter options."; let step+=1
+
 # echo ${args}
 # 重新排列参数的顺序
 # 使用eval 的目的是为了防止参数中有shell命令，被错误的扩展。
@@ -94,27 +110,27 @@ do
         --init | -init)
             info "option --init"
             arg_subcmd=init
-            shift 1
+            shift
             ;;
         --list | -list)
             info "option --list"
             arg_subcmd=list
-            shift 1
+            shift
             ;;
         --import | -import)
             info "option --import"
             arg_subcmd=import
-            shift 1
+            shift
             ;;
         --export | -export)
             info "option --export"
             arg_subcmd=export
-            shift 1
+            shift
             ;;
         --delete | -delete)
             info "option --delete"
             arg_subcmd=delete
-            shift 1
+            shift
             ;;
         --alias | -alias)
             info "option --alias argument : $2"
@@ -123,7 +139,7 @@ do
             ;;
         --file | -file)
             info "option --file argument : $2"
-            arg_file=$2
+            arg_file=$(getRealPath "$2")
             shift 2
             ;;
         --)
@@ -144,22 +160,14 @@ done
 
 # define usage
 usage=$"`basename $0` [-h|--help] [--init] [--list] [--import] [--export] [--delete] [--alias=xxx] [--file=xxx.crt]
-       [-h|--help]
-                       show help info.
-       [--init]
-                       execute init command.
-       [--list]
-                       execute list command.
-       [--import]
-                       execute import command.
-       [--export]
-                       execute export command.
-       [--delete]
-                       execute delete command.
-       [--alias=xxx]
-                       alias of the entry.
-       [--file=xxx.crt]
-                       the name of the certificate.
+       [-h|--help]................show help info.
+       [--init]...................execute init command.
+       [--list]...................execute list command.
+       [--import].................execute import command.
+       [--export].................execute export command.
+       [--delete].................execute delete command.
+       [--alias=xxx]..............alias of the entry.
+       [--file=xxx.crt]...........the name of the certificate.
 "
 
 # show usage
@@ -204,10 +212,12 @@ fun_read_envfile() {
 fun_execute_init_command() {
     header "[Step ${step}]: execute init command."; let step+=1
     set +e
+
     info "copy ${base_dir}/../jre/lib/security/cacerts to ${base_dir}/../${trustfile}"
     \cp -rf "${base_dir}/../jre/lib/security/cacerts" "${base_dir}/../${trustfile}"
     info "change storepasswd to ${newstorepass}"
     "${base_dir}"/../${keytoolcmd} -storepasswd -v -keystore "${base_dir}/../${trustfile}" -storepass "${oldstorepass}" -new "${newstorepass}"
+
     success "successfully executed init command."
     set -e
     return 0
@@ -217,6 +227,7 @@ fun_execute_init_command() {
 fun_execute_list_command() {
     header "[Step ${step}]: execute list command."; let step+=1
     set +e
+
     if [ "x${arg_alias}" == "x" ]; then
         info "list all entries in the keystore"
         "${base_dir}"/../${keytoolcmd} -list -keystore "${base_dir}/../${trustfile}" -storepass "${newstorepass}"
@@ -236,6 +247,7 @@ fun_execute_list_command() {
             error "failed to execute list command."
         fi
     fi
+
     set -e
     return 0
 }
@@ -244,6 +256,7 @@ fun_execute_list_command() {
 fun_execute_import_command() {
     header "[Step ${step}]: execute import command."; let step+=1
     set +e
+
     if [ "x${arg_alias}" == "x" -a "x${arg_file}" == "x" ]; then
         # import certificate from ${base_dir}/../${certspath}
         info "import certificate from ${base_dir}/../${certspath}"
@@ -319,6 +332,7 @@ fun_execute_import_command() {
 fun_execute_export_command() {
     header "[Step ${step}]: execute export command."; let step+=1
     set +e
+
     if [ "x${arg_alias}" == "x" -o "x${arg_file}" == "x" ]; then
         error "alias and file cannot be empty"
         usage "$usage"
@@ -331,6 +345,7 @@ fun_execute_export_command() {
     fi
     info "export certificate, alias : [${arg_alias}], file : [${arg_file}]"
     "${base_dir}"/../${keytoolcmd} -exportcert -rfc -keystore "${base_dir}/../${trustfile}" -alias "${arg_alias}" -file "${arg_file}" -storepass "${newstorepass}"
+
     success "successfully executed export command."
     set -e
     return 0
@@ -340,6 +355,7 @@ fun_execute_export_command() {
 fun_execute_delete_command() {
     header "[Step ${step}]: execute delete command."; let step+=1
     set +e
+
     if [ "x${arg_alias}" == "x" ]; then
         error "alias cannot be empty"
         usage "$usage"
@@ -347,6 +363,7 @@ fun_execute_delete_command() {
     fi
     info "delete certificate, alias : [${arg_alias}]"
     "${base_dir}"/../${keytoolcmd} -delete -v -keystore "${base_dir}/../${trustfile}" -alias "${arg_alias}" -storepass "${newstorepass}"
+
     success "successfully executed delete command."
     set -e
     return 0
@@ -396,6 +413,8 @@ case "${arg_subcmd}" in
         ;;
 esac
 
+# show end time
+timestamp;
 echo ""
 
 exit $?
