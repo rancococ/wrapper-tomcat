@@ -167,7 +167,7 @@ fun_execute_build_command() {
     sed -i 's@#crypto.policy=unlimited@crypto.policy=unlimited@g' "${build_home}/${product_name}/jre/lib/security/java.security"
 
     info "copy files"
-    \cp -rf ${base_dir}/../source/. ${build_home}/${product_name}
+    \cp -rf "${base_dir}/../source/${product_name}"/. "${build_home}/${product_name}"
 
     info "generate version info"
     touch ${build_home}/${product_name}/bin/version
