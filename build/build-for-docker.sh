@@ -64,7 +64,7 @@ cd "${base_dir}"
 
 # envirionment
 product_name="wrapper-tomcat"
-product_version="3.5.43.7"
+product_version="3.5.43.8"
 project_name="wrapper"
 registrys=(
 registry.cdjdgm.com
