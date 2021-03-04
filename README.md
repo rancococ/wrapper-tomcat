@@ -36,3 +36,8 @@ java service wrapper 3.5.43
    - conf/wrapper-additional.conf这个文件里的参数如果包含空格，需要使用双引号引起来
    - \#号是注释
    - 配置文件里不能有中文字符，编辑的时候建议用notepad++
+
+## 镜像构建
+
+   - docker build -t tomcat:centos -f ./docker/centos/Dockerfile ./source/
+   - docker build -t tomcat:alpine -f ./docker/alpine/Dockerfile ./source/
