@@ -66,9 +66,9 @@ cd "${base_dir}"
 product_name="wrapper-tomcat"
 product_version="3.5.43.8"
 project_name="wrapper"
-registrys=(
-registry.cdjdgm.com
-)
+registry_host="registry.cdjdgm.com"
+registry_user=""
+registry_pass=""
 
 build_name="$(cat /proc/sys/kernel/random/uuid)"
 build_home="/tmp/${build_name}"
@@ -88,7 +88,7 @@ arg_subcmd=
 # $@ 从命令行取出参数列表(不能用用 $* 代替，因为 $* 将所有的参数解释成一个字符串
 #                         而 $@ 是一个参数数组)
 # args=`getopt -o ab:c:: -a -l apple,banana:,cherry:: -n "${source_name}" -- "$@"`
-args=`getopt -o h -a -l help,build -n "${source_name}" -- "$@"`
+args=`getopt -o h -a -l help,build,user:,pass: -n "${source_name}" -- "$@"`
 # 判定 getopt 的执行时候有错，错误信息输出到 STDERR
 if [ $? != 0 ]; then
     error "Terminating..." >&2
@@ -119,6 +119,16 @@ do
             arg_subcmd=build
             shift
             ;;
+        --user | -user)
+            info "option --user argument : $2"
+            registry_user="$2"
+            shift 2
+            ;;
+        --pass | -pass)
+            info "option --pass argument : $2"
+            registry_pass="$2"
+            shift 2
+            ;;
         --)
             shift
             break
@@ -136,9 +146,11 @@ for arg do
 done
 
 # define usage
-usage=$"`basename $0` [-h|--help] [--build]
+usage=$"`basename $0` [-h|--help] [--build] [--user=test] [--pass=xxxx]
        [-h|--help]................show help info.
        [--build]..................build ${product_name}.
+       [--user=test]..............registry username.
+       [--pass=xxxx]..............registry password.
 "
 
 # show usage
@@ -160,24 +172,82 @@ fun_execute_build_command() {
     docker build --rm \
                  --no-cache \
                  --build-arg wrapper_version=${product_version} \
-                 -t ${product_name}:${product_version}-centos \
+                 -t ${registry_host}/${project_name}/${product_name}:${product_version}-centos \
                  -f ${base_dir}/../docker/centos/Dockerfile ${base_dir}/../source/
 
     info "docker build for alpine"
     docker build --rm \
                  --no-cache \
                  --build-arg wrapper_version=${product_version} \
-                 -t ${product_name}:${product_version}-alpine \
+                 -t ${registry_host}/${project_name}/${product_name}:${product_version}-alpine \
                  -f ${base_dir}/../docker/alpine/Dockerfile ${base_dir}/../source/
 
-    info "docker retag"
-    for registry in ${registrys[@]}; do
-        docker tag ${product_name}:${product_version}-centos ${registry}/${project_name}/${product_name}:${product_version}-centos
-        docker tag ${product_name}:${product_version}-alpine ${registry}/${project_name}/${product_name}:${product_version}-alpine
-    done
+    info "docker login registry"
+    # check registry_user
+    if [ "x${registry_user}" == "x" ]; then
+        # Manual input username
+        info "enter the username for registry [${registry_host}]"
+        for i in {3..1}; do
+            # enter the username
+            read -s -p "enter the username for registry [${registry_host}] : " registry_user && printf "\n"
+            if [ -z "${registry_user}" ]; then
+                warn "username cannot be empty, please try again [$i]."
+                continue
+            else
+                break
+            fi
+        done
+        if [ "x${registry_user}" == "x" ]; then
+            error "failed to get the username."
+            exit 1
+        fi
+    fi
+    # check registry_pass
+    if [ "x${registry_pass}" == "x" ]; then
+        # Manual input password
+        info "verify the password for [${registry_user}]"
+        for i in {3..1}; do
+            # enter the password
+            read -s -p "enter the password for [${registry_user}] : " registry_pass && printf "\n"
+            if [ -z "${registry_pass}" ]; then
+                warn "password cannot be empty, please try again [$i]."
+                continue
+            fi
+            # login;
+            result=$(echo "${registry_pass}" | docker login --username="${registry_user}" --password-stdin "${registry_host}")
+            if [ $? -eq 0 ]; then
+                success "successfully verified password."
+                break
+            else
+                error "${result}"
+                error "an error occurred, please try again [$i]."
+                registry_pass=""
+                continue
+            fi
+            sleep 1
+        done
+        if [ "x${registry_pass}" == "x" ]; then
+            error "failed to verified password."
+            exit 1
+        fi
+    else
+        # Automatic input password
+        # login;
+        result=$(echo "${registry_pass}" | docker login --username="${registry_user}" --password-stdin "${registry_host}")
+        if [ $? -eq 0 ]; then
+            success "successfully verified password."
+        else
+            error "${result}"
+            exit 1
+        fi
+    fi
+
+    info "docker push registry"
+    docker push ${registry_host}/${project_name}/${product_name}:${product_version}-centos
+    docker push ${registry_host}/${project_name}/${product_name}:${product_version}-alpine
 
     info "delete none images"
-	docker rmi -f $(docker images -f "dangling=true" -q);
+    docker rmi -f $(docker images -f "dangling=true" -q);
 
     success "successfully builded ${product_name}."
 
